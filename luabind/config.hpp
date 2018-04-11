@@ -42,6 +42,12 @@
 #define LUABIND_MAX_BASES 1
 #endif
 
+#ifdef COC_EDITION
+# ifndef LUABIND_NO_ERROR_CHECKING
+#  define LUABIND_NO_ERROR_CHECKING
+# endif
+#endif
+
 #ifdef NDEBUG
 # ifndef LUABIND_NO_ERROR_CHECKING
 #  define LUABIND_NO_ERROR_CHECKING
