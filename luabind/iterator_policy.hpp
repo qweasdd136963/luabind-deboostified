@@ -138,7 +138,7 @@ namespace luabind {
 		};
 
 		template <class Iterator>
-		int make_range(lua_State* L, Iterator first, Iterator last)
+		int make_range_pair(lua_State* L, Iterator first, Iterator last)
 		{
 			void* storage = lua_newuserdata(L, sizeof(iteratorPair<Iterator>));
 			lua_newtable(L);
@@ -151,9 +151,9 @@ namespace luabind {
 		}
 
 		template <class Container>
-		int make_range(lua_State* L, Container& container)
+		int make_range_pair(lua_State* L, Container& container)
 		{
-			return make_range(L, container.begin(), container.end());
+			return make_range_pair(L, container.begin(), container.end());
 		}
 
 		struct iterator_pair_converter
@@ -163,13 +163,13 @@ namespace luabind {
 			template <class Container>
 			void to_lua(lua_State* L, Container& container)
 			{
-				make_range(L, container);
+				make_range_pair(L, container);
 			}
 
 			template <class Container>
 			void tu_lua(lua_State* L, Container const& container)
 			{
-				make_range(L, container);
+				make_range_pair(L, container);
 			}
 		};
 
