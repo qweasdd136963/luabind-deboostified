@@ -12,10 +12,7 @@
 #include <luabind/yield_policy.hpp>
 #include <luabind/detail/decorate_type.hpp>
 #include <luabind/detail/object.hpp>
-
-#ifdef LUABIND_NO_INTERNAL_TAG_ARGUMENTS
 #include <tuple>
-#endif
 
 namespace luabind {
 	namespace detail {
@@ -33,6 +30,9 @@ namespace luabind {
 			{}
 
 			virtual int call(lua_State* L, invoke_context& ctx) /* const */ = 0;
+#ifdef COC_LUABIND
+			virtual int callNext(lua_State* L, invoke_context& ctx) /* const */ = 0;
+#endif
 			virtual int format_signature(lua_State* L, char const* function, bool concat = true) const = 0;
 
 			lua_CFunction entry;
@@ -128,179 +128,7 @@ namespace luabind {
 				static void postcall(lua_State* /*L*/, int /*results*/) {}
 			};
 
-#ifndef LUABIND_NO_INTERNAL_TAG_ARGUMENTS
-			template< typename... ArgumentConverters >
-			struct compute_invoke_values {
-				using consumed_list = meta::index_list< FooFoo<ArgumentConverters>::consumed_args... >;
-				using stack_index_list = typename compute_stack_indices< consumed_list, 1 >::type;
-				enum { arity = meta::sum<consumed_list>::value };
-			};
-#endif
-
-
 		}
-
-#ifndef LUABIND_NO_INTERNAL_TAG_ARGUMENTS
-		inline int match_deferred(lua_State* L, meta::index_list<>, meta::type_list<>)
-		{
-			return 0;
-		}
-
-		template< unsigned int StackIndex0, unsigned int... StackIndices,
-			typename ArgumentType0, typename... ArgumentTypes,
-			typename ArgumentConverter0, typename... ArgumentConverters >
-			int match_deferred(lua_State* L,
-				meta::index_list< StackIndex0, StackIndices... >,
-				meta::type_list< ArgumentType0, ArgumentTypes... >,
-				ArgumentConverter0& converter0, ArgumentConverters&... converters
-			)
-		{
-			const int this_match = converter0.match(L, decorated_type<ArgumentType0>(), StackIndex0);
-			const int other_match = match_deferred(L, meta::index_list<StackIndices...>(), meta::type_list<ArgumentTypes...>(), converters...);
-			return (this_match >= 0) ?	// could also sum them all up unconditionally
-				this_match + match_deferred(L, meta::index_list<StackIndices...>(), meta::type_list<ArgumentTypes...>(), converters...)
-				: no_match;
-		}
-
-		template< typename T, bool isvoid, bool memfun = std::is_member_function_pointer<T>::value > struct do_call_struct;
-
-		template< typename T >
-		struct do_call_struct< T, true, true /*memfun*/> {
-			template< typename F, typename ArgumentType0, typename... ArgumentTypes, unsigned int StackIndex0, unsigned int... StackIndices, typename ReturnConverter, typename Argument0Converter, typename... ArgumentConverters >
-			static void do_call(lua_State* L, F& f,
-				meta::index_list<StackIndex0, StackIndices...>, meta::type_list<ArgumentType0, ArgumentTypes...>,
-				ReturnConverter& result_converter, Argument0Converter& arg0_converter, ArgumentConverters&... arg_converters
-			)
-			{
-				((arg0_converter.to_cpp(L, decorated_type<ArgumentType0>(), StackIndex0)).*f)(
-					arg_converters.to_cpp(L, decorated_type<ArgumentTypes>(), StackIndices)...
-					);
-			}
-		};
-
-		template< typename T >
-		struct do_call_struct< T, false, true /*memfun*/> {
-			template< typename F, typename ArgumentType0, typename... ArgumentTypes, unsigned int StackIndex0, unsigned int... StackIndices, typename ReturnConverter, typename Argument0Converter, typename... ArgumentConverters >
-			static void do_call(lua_State* L, F& f,
-				meta::index_list<StackIndex0, StackIndices...>, meta::type_list<ArgumentType0, ArgumentTypes...>,
-				ReturnConverter& result_converter, Argument0Converter& arg0_converter, ArgumentConverters&... arg_converters
-			)
-			{
-				result_converter.to_lua(L,
-					((arg0_converter.to_cpp(L, decorated_type<ArgumentType0>(), StackIndex0)).*f)(
-						arg_converters.to_cpp(L, decorated_type<ArgumentTypes>(), StackIndices)...
-						)
-				);
-			}
-		};
-
-
-		template< typename T >
-		struct do_call_struct< T, true, false > {
-			template<
-				typename F,
-				typename... ArgumentTypes, unsigned int... StackIndices,
-				typename ReturnConverter, typename... ArgumentConverters
-			>
-				static void do_call(lua_State* L, F& f,
-					meta::index_list<StackIndices...>, meta::type_list<ArgumentTypes...>,
-					ReturnConverter& result_converter, ArgumentConverters&... arg_converters)
-			{
-				f(arg_converters.to_cpp(L, decorated_type<ArgumentTypes>(), StackIndices)...);
-			}
-		};
-
-		template< typename T >
-		struct do_call_struct< T, false, false > {
-			template<
-				typename F,
-				typename... ArgumentTypes, unsigned int... StackIndices,
-				typename ReturnConverter, typename... ArgumentConverters
-			>
-				static void do_call(lua_State* L, F& f,
-					meta::index_list<StackIndices...>, meta::type_list<ArgumentTypes...>,
-					ReturnConverter& result_converter, ArgumentConverters&... arg_converters)
-			{
-				result_converter.to_lua(L,
-					f(arg_converters.to_cpp(L, decorated_type<ArgumentTypes>(), StackIndices)...)
-				);
-			}
-		};
-
-		template< typename F, typename ReturnType, typename... Arguments,
-			typename ReturnConverter, typename... ArgumentConverters,
-			unsigned int Index0, unsigned int... Indices, typename PolicyList
-		>
-			int invoke3(lua_State* L, function_object const& self, invoke_context& ctx, F& f,
-				PolicyList, meta::index_list< Index0, Indices... > index_list, meta::type_list<ReturnType, Arguments...> signature_list,
-				ReturnConverter return_converter, ArgumentConverters... argument_converters)
-		{
-			using invoke_values = typename call_detail_new::compute_invoke_values< ArgumentConverters... >;
-			using argument_list_type = meta::type_list<Arguments...>;
-			using argument_index_list = meta::index_list<Indices...>;
-
-			int const arguments = lua_gettop(L);
-			int score = no_match;
-
-			if(invoke_values::arity == arguments) {
-				score = match_deferred(L, typename invoke_values::stack_index_list(), argument_list_type(), argument_converters...);
-			}
-
-			if(score >= 0 && score < ctx.best_score) {
-				ctx.best_score = score;
-				ctx.candidates[0] = &self;
-				ctx.candidate_index = 1;
-			} else if(score == ctx.best_score) {
-				ctx.candidates[ctx.candidate_index++] = &self;
-			}
-
-			int results = 0;
-
-			if(self.next)
-			{
-				results = self.next->call(L, ctx);
-			}
-
-			if(score == ctx.best_score && ctx.candidate_index == 1)
-			{
-				do_call_struct<F, std::is_void<ReturnType>::value>::do_call(L, f, typename invoke_values::stack_index_list(), argument_list_type(), return_converter, argument_converters...);
-				meta::init_order{ (argument_converters.converter_postcall(L, decorated_type<Arguments>(), meta::get< typename invoke_values::stack_index_list, Indices - 1 >::value), 0)... };
-
-				results = lua_gettop(L) - invoke_values::arity;
-				if(has_call_policy<PolicyList, yield_policy>::value) {
-					results = lua_yield(L, results);
-				}
-
-				// call policiy list postcall
-				call_detail_new::policy_list_postcall < PolicyList, typename meta::push_front< typename invoke_values::stack_index_list, meta::index<invoke_values::arity> >::type >::postcall(L, results);
-			}
-
-			return results;
-		}
-
-		template< typename F, typename ReturnType, typename... Arguments, unsigned int Index0, unsigned int... Indices, typename PolicyList >
-		int invoke2(lua_State* L, function_object const& self, invoke_context& ctx, F& f,
-			meta::type_list<ReturnType, Arguments...> signature, meta::index_list<Index0, Indices...>, PolicyList)
-		{
-			using signature_type = meta::type_list<ReturnType, Arguments...>;
-			using return_converter = specialized_converter_policy_n<0, PolicyList, ReturnType, cpp_to_lua>;
-			return invoke3(L, self, ctx, f,
-				PolicyList(), meta::index_list<Index0, Indices...>(), signature,
-				return_converter(), specialized_converter_policy_n<Indices, PolicyList, Arguments, lua_to_cpp>()...
-			);
-		}
-
-
-		template <class F, class Signature, typename... PolicyInjectors>
-		// boost::bind's operator() is const, std::bind's is not
-		inline int invoke(lua_State* L, function_object const& self, invoke_context& ctx, F& f, Signature,
-			meta::type_list< PolicyInjectors... > const& injectors)
-		{
-			return invoke2(L, self, ctx, f, Signature(), typename meta::make_index_range<0, meta::size<Signature>::value>::type(), injectors);
-		}
-#endif
-
-#ifdef LUABIND_NO_INTERNAL_TAG_ARGUMENTS
 
 		// VC2013RC doesn't support expanding a template and its member template in one expression, that's why we have to to incrementally build
 		// the converter list instead of a single combined expansion.
@@ -480,6 +308,89 @@ namespace luabind {
 				}
 			};
 
+#ifdef COC_LUABIND
+			static int invoke1(lua_State* L, function_object const& self, invoke_context& ctx, F& f) {
+				int const arguments = lua_gettop(L);
+				int score = no_match;
+
+				// Even match needs the tuple, since pointer_converters buffer the cast result
+				typename traits::argument_converter_tuple_type converter_tuple;
+
+				using struct_type = match_struct< typename traits::stack_index_list, typename traits::signature_list >;
+				score = struct_type::match(L, converter_tuple);
+
+				ctx.best_score = score;
+				ctx.candidates[0] = &self;
+				ctx.candidate_index = 1;
+
+				int results = 0;
+
+				if (score == ctx.best_score && ctx.candidate_index == 1)
+				{
+					call_struct<
+						std::is_member_function_pointer<F>::value,
+						std::is_void<typename traits::result_type>::value,
+						typename traits::argument_index_list
+					>::call(L, f, converter_tuple);
+
+					results = lua_gettop(L) - arguments;
+					if (has_call_policy<PolicyList, yield_policy>::value) {
+						results = lua_yield(L, results);
+					}
+
+					call_detail_new::policy_list_postcall < PolicyList, typename meta::push_front< typename traits::stack_index_list, meta::index<traits::arity> >::type >::postcall(L, results);
+				}
+
+				return results;
+			}
+
+			static int invoke(lua_State* L, function_object const& self, invoke_context& ctx, F& f) {
+				int const arguments = lua_gettop(L);
+				int score = no_match;
+
+				// Even match needs the tuple, since pointer_converters buffer the cast result
+				typename traits::argument_converter_tuple_type converter_tuple;
+
+				using struct_type = match_struct< typename traits::stack_index_list, typename traits::signature_list >;
+				score = struct_type::match(L, converter_tuple);
+
+				//bool callFun = false;
+				if (score >= 0 && score < ctx.best_score) {
+					ctx.best_score = score;
+					ctx.candidates[0] = &self;
+					ctx.candidate_index = 1;
+				}
+				else if (score == ctx.best_score) {
+					ctx.candidates[ctx.candidate_index++] = &self;
+					//callFun = true;
+				}
+
+				int results = 0;
+
+				if (self.next)
+				{
+					results = self.next->callNext(L, ctx);
+				}
+
+				if (score == ctx.best_score && ctx.candidate_index == 1)
+				{
+					call_struct<
+						std::is_member_function_pointer<F>::value,
+						std::is_void<typename traits::result_type>::value,
+						typename traits::argument_index_list
+					>::call(L, f, converter_tuple);
+
+					results = lua_gettop(L) - arguments;
+					if (has_call_policy<PolicyList, yield_policy>::value) {
+						results = lua_yield(L, results);
+					}
+
+					call_detail_new::policy_list_postcall < PolicyList, typename meta::push_front< typename traits::stack_index_list, meta::index<traits::arity> >::type >::postcall(L, results);
+				}
+
+				return results;
+			}
+#else
 			static int invoke(lua_State* L, function_object const& self, invoke_context& ctx, F& f) {
 				int const arguments = lua_gettop(L);
 				int score = no_match;
@@ -530,15 +441,30 @@ namespace luabind {
 
 				return results;
 			}
+#endif
 
 		};
-
+		
+#ifdef COC_LUABIND
 		template< typename PolicyList, typename Signature, typename F>
-		inline int invoke(lua_State* L, function_object const& self, invoke_context& ctx, F& f)
+		inline int invokeNext(lua_State* L, function_object const& self, invoke_context& ctx, F& f)
 		{
 			return invoke_struct<PolicyList, Signature, F>::invoke(L, self, ctx, f);
 		}
 #endif
+
+		template< typename PolicyList, typename Signature, typename F>
+		inline int invoke(lua_State* L, function_object const& self, invoke_context& ctx, F& f)
+		{
+#ifdef COC_LUABIND
+			if (!self.next)
+				return invoke_struct<PolicyList, Signature, F>::invoke1(L, self, ctx, f);
+			else
+				return invoke_struct<PolicyList, Signature, F>::invoke(L, self, ctx, f);
+#else
+			return invoke_struct<PolicyList, Signature, F>::invoke(L, self, ctx, f);
+#endif
+		}
 
 	}
 } // namespace luabind::detail

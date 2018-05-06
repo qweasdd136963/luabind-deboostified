@@ -46,6 +46,7 @@
 # ifndef LUABIND_NO_ERROR_CHECKING
 #  define LUABIND_NO_ERROR_CHECKING
 # endif
+#	define COC_LUABIND
 #endif
 
 #ifdef NDEBUG
@@ -111,9 +112,6 @@
 #ifndef LUABIND_API
 # define LUABIND_API
 #endif
-
-// This switches between using tag arguments / structure specialization for code size tests
-#define LUABIND_NO_INTERNAL_TAG_ARGUMENTS
 
 namespace luabind {
 
