@@ -33,17 +33,10 @@ namespace luabind {
 				: function_object(&entry_point), f(f)
 			{}
 
-			int call(lua_State* L, invoke_context& ctx) /*const*/
+			int call(lua_State* L, invoke_context& ctx, const int args) const
 			{
-				return invoke<InjectorList, Signature>(L, *this, ctx, f);
+				return call_best_match<InjectorList, Signature>(L, *this, ctx, f, args);
 			}
-
-#ifdef COC_LUABIND
-			int callNext(lua_State* L, invoke_context& ctx) /*const*/
-			{
-				return invokeNext<InjectorList, Signature>(L, *this, ctx, f);
-			}
-#endif
 
 			int format_signature(lua_State* L, char const* function, bool concat = true) const
 			{
@@ -78,18 +71,15 @@ namespace luabind {
 				bool exception_caught = invoke_defer(L, impl, ctx, results);
 				if(exception_caught) lua_error(L);
 # else
-#	ifndef COC_LUABIND
 				results = invoke<InjectorList, Signature>(L, *impl, ctx, impl->f);
-#	else
-				results = invoke<InjectorList, Signature>(L, *impl, ctx, impl->f);
-#	endif
 # endif
-				/*
+
+#ifndef COC_LUABIND
 				if(!ctx) {
 					ctx.format_error(L, impl);
 					lua_error(L);
 				}
-				*/
+#endif
 
 				return results;
 			}
