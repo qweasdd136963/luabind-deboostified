@@ -83,8 +83,11 @@ namespace luabind
 			stack_pop pop(L, lua_gettop(L) - top);
 
 			specialized_converter_policy_n<0, PolicyList, R, lua_to_cpp> converter;
+
 			if(converter.match(L, decorate_type_t<R>(), -1) < 0) {
+#ifndef COC_LUABIND
 				cast_error<R>(L);
+#endif
 			}
 
 			return converter.to_cpp(L, decorate_type_t<R>(), -1);
