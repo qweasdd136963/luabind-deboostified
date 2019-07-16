@@ -25,7 +25,7 @@ namespace luabind {
 		template <class T>
 		std::pair<class_id, void*> get_dynamic_class_aux(lua_State*, T const* p, std::false_type)
 		{
-			return std::make_pair(registered_class<T>::id, (void*)p);
+			return std::make_pair(registered_class<T>::id.get(), (void*)p);
 		}
 
 		template <class T>
@@ -37,7 +37,7 @@ namespace luabind {
 		template <class T>
 		class_rep* get_pointee_class(class_map const& classes, T*)
 		{
-			return classes.get(registered_class<T>::id);
+			return classes.get(registered_class<T>::id.get());
 		}
 
 		template <class P>
@@ -132,7 +132,7 @@ namespace luabind {
 		template< typename ValueType >
 		void make_value_instance(lua_State* L, ValueType&& val, std::false_type /* smart ptr */)
 		{
-			const auto value_type_id = detail::registered_class<ValueType>::id;
+			const auto value_type_id = detail::registered_class<ValueType>::id.get();
 			class_rep* cls = get_pointee_class(L, &val, value_type_id);
 
 			if(!cls) {

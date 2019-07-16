@@ -61,7 +61,7 @@ namespace luabind {
 				if(obj->is_const())
 					return no_match;
 
-				std::pair<void*, int> s = obj->get_instance(registered_class<T>::id);
+				std::pair<void*, int> s = obj->get_instance(registered_class<T>::id.get());
 				result = s.first;
 				return s.second;
 			}
@@ -104,7 +104,7 @@ namespace luabind {
 				object_rep* obj = get_instance(L, index);
 				if(obj == 0) return no_match; // if the type is not one of our own registered types, classify it as a non-match
 
-				std::pair<void*, int> s = obj->get_instance(registered_class<T>::id);
+				std::pair<void*, int> s = obj->get_instance(registered_class<T>::id.get());
 				if(s.second >= 0 && !obj->is_const())
 					s.second += 10;
 				result = s.first;

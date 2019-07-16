@@ -48,7 +48,7 @@ namespace luabind {
 			std::pair<void*, int> get(cast_graph const& casts, class_id target) const override
 			{
 				// if somebody wants the smart-ptr, he can get a reference to it
-				if(target == registered_class<P>::id) return std::pair<void*, int>(&this->p, 0);
+				if(target == registered_class<P>::id.get()) return std::pair<void*, int>(&this->p, 0);
 
 				void* naked_ptr = const_cast<void*>(static_cast<void const*>(weak ? weak : get_pointer(p)));
 				if(!naked_ptr) return std::pair<void*, int>(nullptr, 0);
@@ -56,7 +56,7 @@ namespace luabind {
 				using pointee_type = typename std::remove_cv<typename std::remove_reference<decltype(*get_pointer(p))>::type>::type;
 
 				return casts.cast(naked_ptr,
-					registered_class< pointee_type >::id,
+					registered_class< pointee_type >::id.get(),
 					target, dynamic_id, dynamic_ptr);
 			}
 
@@ -98,7 +98,7 @@ namespace luabind {
 
 			std::pair<void*, int> get(cast_graph const& casts, class_id target) const override
 			{
-				const auto this_id = registered_class<ValueType>::id;
+				const auto this_id = registered_class<ValueType>::id.get();
 				void* const naked_ptr = const_cast<void*>((const void*)&val_);
 				if(target == this_id) return std::pair<void*, int>(naked_ptr, 0);
 				return casts.cast(naked_ptr, this_id, target, this_id, naked_ptr);
@@ -136,13 +136,13 @@ namespace luabind {
 
 			std::pair<void*, int> get(cast_graph const& casts, class_id target) const override
 			{
-				const auto value_id = registered_class<ValueType>::id;
+				const auto value_id = registered_class<ValueType>::id.get();
 				void* const naked_value_ptr = const_cast<void*>((const void*)&val_);
 				if(target == value_id) return std::pair<void*, int>(naked_value_ptr, 0);
 				// If we were to support automatic pointer conversion, this would be the place
 
 				using pointee_type = typename std::remove_cv<typename std::remove_reference<decltype(*get_pointer(val_))>::type >::type;
-				const auto pointee_id = registered_class< pointee_type >::id;
+				const auto pointee_id = registered_class< pointee_type >::id.get();
 				void* const naked_pointee_ptr = const_cast<void*>((const void*)get_pointer(val_));
 				return casts.cast(naked_pointee_ptr, pointee_id, target, dynamic_id_, dynamic_ptr_);
 			}

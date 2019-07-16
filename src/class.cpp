@@ -130,7 +130,7 @@ namespace luabind {
 
 			classes.put(m_id, crep);
 
-			bool const has_wrapper = m_wrapper_id != registered_class<null_type>::id;
+			bool const has_wrapper = m_wrapper_id != registered_class<null_type>::id.get();
 
 			if(has_wrapper)
 				classes.put(m_wrapper_id, crep);

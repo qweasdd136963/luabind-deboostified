@@ -507,7 +507,7 @@ namespace luabind {
 	private:
 		void init()
 		{
-			class_base::init(typeid(T), detail::registered_class<T>::id, typeid(WrapperType), detail::registered_class<WrapperType>::id);
+			class_base::init(typeid(T), detail::registered_class<T>::id.get(), typeid(WrapperType), detail::registered_class<WrapperType>::id.get());
 			add_wrapper_cast((WrapperType*)0);
 			generate_baseclass_list();
 		}
@@ -519,7 +519,7 @@ namespace luabind {
 		template <class Src, class Target>
 		void add_downcast(Src*, Target*, std::true_type)
 		{
-			add_cast(detail::registered_class<Src>::id, detail::registered_class<Target>::id, detail::dynamic_cast_<Src, Target>::execute);
+			add_cast(detail::registered_class<Src>::id.get(), detail::registered_class<Target>::id.get(), detail::dynamic_cast_<Src, Target>::execute);
 		}
 
 		template <class Src, class Target>
@@ -533,7 +533,7 @@ namespace luabind {
 		void gen_base_info(bases<Class0, Classes...>)
 		{
 			add_base(typeid(Class0), detail::static_cast_<T, Class0>::execute);
-			add_cast(detail::registered_class<T>::id, detail::registered_class<Class0>::id, detail::static_cast_<T, Class0>::execute);
+			add_cast(detail::registered_class<T>::id.get(), detail::registered_class<Class0>::id.get(), detail::static_cast_<T, Class0>::execute);
 			add_downcast((Class0*)0, (T*)0, std::is_polymorphic<Class0>());
 			gen_base_info(bases<Classes...>());
 		}
@@ -555,7 +555,7 @@ namespace luabind {
 		template <class U>
 		void add_wrapper_cast(U*)
 		{
-			add_cast(detail::registered_class<U>::id, detail::registered_class<T>::id, detail::static_cast_<U, T>::execute);
+			add_cast(detail::registered_class<U>::id.get(), detail::registered_class<T>::id.get(), detail::static_cast_<U, T>::execute);
 			add_downcast((T*)0, (U*)0, std::is_polymorphic<T>());
 		}
 

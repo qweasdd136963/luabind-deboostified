@@ -63,7 +63,7 @@ namespace luabind {
 				object_rep* obj = get_instance(L, index);
 				if(obj == 0) return no_match;
 
-				std::pair<void*, int> s = obj->get_instance(registered_class<T>::id);
+				std::pair<void*, int> s = obj->get_instance(registered_class<T>::id.get());
 				result = s.first;
 				return s.second;
 			}

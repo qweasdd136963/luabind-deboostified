@@ -17,7 +17,24 @@ namespace luabind {
 	namespace detail {
 
 		using cast_function = void*(*)(void*);
-		using class_id      = std::size_t;
+		using class_id = std::size_t;
+
+		// Thread safe class_id allocation.
+		LUABIND_API class_id allocate_class_id(type_id const& cls);
+		LUABIND_API void destroy_class_id(const class_id& id);
+
+		class class_id_wrapper
+		{
+		public:
+			class_id_wrapper() = default;
+			class_id_wrapper(std::size_t obj) : m_obj(obj) {}
+			~class_id_wrapper() { destroy_class_id(m_obj); }
+
+			const std::size_t& get() const { return m_obj; }
+
+		private:
+			class_id m_obj = 0;
+		};
 
 		constexpr class_id unknown_class = std::numeric_limits<class_id>::max();
 
@@ -144,17 +161,14 @@ namespace luabind {
 			}
 		};
 
-		// Thread safe class_id allocation.
-		LUABIND_API class_id allocate_class_id(type_id const& cls);
-
 		template <class T>
 		struct registered_class
 		{
-			static class_id const id;
+			static const class_id_wrapper id;
 		};
 
 		template <class T>
-		class_id const registered_class<T>::id = allocate_class_id(typeid(T));
+		const class_id_wrapper registered_class<T>::id = allocate_class_id(typeid(T));
 
 		template <class T>
 		struct registered_class<T const>

@@ -209,19 +209,57 @@ namespace luabind {
 		cast_graph::~cast_graph()
 		{}
 
-		LUABIND_API class_id allocate_class_id(type_id const& cls)
+		class registered_classes_factory
 		{
-            // use plain map here because this function is called by static initializers,
-            // so luabind::allocator is not set yet
+			// use plain map here because this function is called by static initializers,
+			// so luabind::allocator is not set yet
 			using map_type = std::map<type_id, class_id>;
 
-			static map_type registered;
-			static class_id id = 0;
+			map_type m_registered;
 
-			std::pair<map_type::iterator, bool> inserted = registered.insert(std::make_pair(cls, id));
-			if(inserted.second) ++id;
+		public:
+			registered_classes_factory() = default;
+			registered_classes_factory(const registered_classes_factory&) = delete;
+			void operator=(const registered_classes_factory&) = delete;
 
-			return inserted.first->second;
+			static registered_classes_factory& get()
+			{
+				static registered_classes_factory instance;
+				return instance;
+			}
+
+			class_id reg(type_id const& cls)
+			{
+				static class_id id = 0;
+
+				std::pair<map_type::iterator, bool> inserted = m_registered.insert(std::make_pair(cls, id));
+				if (inserted.second) ++id;
+
+				return inserted.first->second;
+			}
+			void unreg(const class_id& id)
+			{
+				auto it = m_registered.begin();
+				auto it_e = m_registered.end();
+				for (; it != it_e; it++)
+				{
+					if ((*it).second == id)
+					{
+						m_registered.erase((*it).first);
+						return;
+					}
+				}
+			}
+		};
+
+		LUABIND_API class_id allocate_class_id(type_id const& cls)
+		{
+			return registered_classes_factory::get().reg(cls);
+		}
+
+		LUABIND_API void destroy_class_id(const class_id& id)
+		{
+			registered_classes_factory::get().unreg(id);
 		}
 
 	} // namespace detail
